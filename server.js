@@ -837,7 +837,7 @@ app.post('/api/users/login-face', async (c) => {
 });
 
 // Start local server if in Node environment directly
-if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+if (typeof process !== 'undefined' && process.versions && process.versions.node && typeof WebSocketPair === 'undefined') {
   const PORT = process.env.PORT || 3000;
   serve({
     fetch: app.fetch,
