@@ -44,3 +44,8 @@ Thumbs.db
 .history
 .ionide
 
+# Biometric models and test files
+models/
+*.jpg
+
+

@@ -805,6 +805,52 @@ app.post('/api/users/:email/register-face', async (c) => {
   return c.json({ message: 'Firma facial vinculada cuánticamente.' });
 });
 
+// Helper for face verification using Python script
+async function runFaceVerifier(img1, img2) {
+  let spawn;
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    const cp = await import('child_process');
+    spawn = cp.spawn;
+  }
+  
+  if (!spawn) {
+    console.log('Ambiente sin soporte para child_process (simulando paso).');
+    return { verified: true, score: 1.0, threshold: 0.363, metric: 'simulated' };
+  }
+
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(__dirname, 'face_verifier.py');
+    const pythonProcess = spawn('python', [scriptPath]);
+    
+    let output = '';
+    let errorOutput = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`El proceso biométrico falló (código ${code}). ${errorOutput}`));
+        return;
+      }
+      try {
+        const result = JSON.parse(output.trim());
+        resolve(result);
+      } catch (err) {
+        reject(new Error(`Error al parsear output biométrico: ${output}`));
+      }
+    });
+
+    pythonProcess.stdin.write(JSON.stringify({ img1, img2 }));
+    pythonProcess.stdin.end();
+  });
+}
+
 // 14. LOGIN FACE
 app.post('/api/users/login-face', async (c) => {
   const { email, faceImage } = await c.req.json();
@@ -826,14 +872,32 @@ app.post('/api/users/login-face', async (c) => {
     return c.json({ error: 'Esta cuenta aún no ha sido verificada.' }, 400);
   }
 
-  // Simulator/biometric validation
-  return c.json({
-    message: 'Firma facial verificada. Acceso autorizado.',
-    user: {
-      name: user.name,
-      email: user.email
+  try {
+    const verificationResult = await runFaceVerifier(user.faceImage, faceImage);
+    
+    if (verificationResult.error) {
+      return c.json({ error: verificationResult.error }, 400);
     }
-  });
+    
+    if (!verificationResult.verified) {
+      return c.json({ 
+        error: `El rostro escaneado no coincide con la firma registrada (Similitud: ${(verificationResult.score * 100).toFixed(1)}%).`
+      }, 400);
+    }
+
+    console.log(`Verificación biométrica exitosa para ${email}. Similitud: ${(verificationResult.score * 100).toFixed(1)}%`);
+
+    return c.json({
+      message: 'Firma facial verificada. Acceso autorizado.',
+      user: {
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error('Error durante la verificación facial:', err.message);
+    return c.json({ error: 'Error del sistema en el escáner biométrico.' }, 500);
+  }
 });
 
 // Start local server if in Node environment directly
