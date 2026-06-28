@@ -6,8 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { recommend } from './recommender.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = (import.meta && import.meta.url) ? fileURLToPath(import.meta.url) : '';
+const __dirname = __filename ? path.dirname(__filename) : '';
 
 const app = new Hono();
 
@@ -837,7 +837,7 @@ app.post('/api/users/login-face', async (c) => {
 });
 
 // Start local server if in Node environment directly
-if (typeof process !== 'undefined' && process.env) {
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
   const PORT = process.env.PORT || 3000;
   serve({
     fetch: app.fetch,
