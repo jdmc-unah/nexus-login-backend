@@ -808,9 +808,13 @@ app.post('/api/users/:email/register-face', async (c) => {
 // Helper for face verification using Python script
 async function runFaceVerifier(img1, img2) {
   let spawn;
-  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-    const cp = await import('child_process');
-    spawn = cp.spawn;
+  try {
+    if (typeof process !== 'undefined' && process.versions && process.versions.node && typeof WebSocketPair === 'undefined') {
+      const cp = await import('child_process');
+      spawn = cp.spawn;
+    }
+  } catch (err) {
+    console.log('Error al importar child_process, asumiendo ambiente sin soporte:', err.message);
   }
   
   if (!spawn) {
