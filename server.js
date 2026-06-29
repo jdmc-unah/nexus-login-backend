@@ -11,8 +11,11 @@ const __dirname = __filename ? path.dirname(__filename) : '';
 
 const app = new Hono();
 
-// Enable CORS
-app.use('*', cors());
+// Enable CORS dynamically matching origin
+app.use('*', cors({
+  origin: (origin) => origin || '*',
+  credentials: true,
+}));
 
 // In-memory movie & credits cache
 const movieCache = new Map();
